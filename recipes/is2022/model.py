@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 from typing import Any, Dict, Literal, List, Optional, Tuple
 from deep.modules.fourier import ConvSTFT, ConvISTFT, LinearDCT
-from recipies.is2022.modules import (
+from recipes.is2022.modules import (
     Encoder,
     VQEMAUNet, DenoisingVQEMAUNet,
     VAEUNet, DenoisingVAEUNet,

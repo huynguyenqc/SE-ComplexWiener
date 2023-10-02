@@ -13,8 +13,8 @@ import yaml
 from scipy.io import wavfile as sio_wav
 from typing import Union, Type, List, Tuple, Dict, Any
 from deep.utils import load_state_dict_from_path, AverageLogs
-from recipies.is2022.model import SpeechEnhancement, SpeechEnhancementVAE
-from recipies.is2022.data_utils import load_wav, tailor_dB_FS, PreSyntheticNoisyDataset
+from recipes.is2022.model import SpeechEnhancement, SpeechEnhancementVAE
+from recipes.is2022.data_utils import load_wav, tailor_dB_FS, PreSyntheticNoisyDataset
 
 
 ENHANCE_SAMPLING_RATE = 16000

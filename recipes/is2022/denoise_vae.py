@@ -15,9 +15,9 @@ from typing import Any, Dict, Generator, List, Optional, Union, Literal
 from deep.utils import (
     AverageLogs, InstantLogs, Checkpointer, Counter, CSVLogWriter,
     load_model_to_cuda, load_state_dict_from_path)
-from recipies.is2022.data_utils import PreSyntheticNoisyDataset, AugmentedNoisyDataset
-from recipies.is2022.model import PretrainSpeechVariance, SpeechEnhancement
-from recipies.is2022.media_logging import MediaDataLogging
+from recipes.is2022.data_utils import PreSyntheticNoisyDataset, AugmentedNoisyDataset
+from recipes.is2022.model import PretrainSpeechVarianceVAE, SpeechEnhancementVAE
+from recipes.is2022.media_logging import MediaDataLogging
 from utils.snapshot_src import snapshot
 
 
@@ -52,13 +52,13 @@ class EpochValidator(MediaDataLogging):
     def __init__(
             self,
             dataloader: torch_data.DataLoader,
-            model: SpeechEnhancement,
+            model: SpeechEnhancementVAE,
             save_dir: str,
             log_writer: CSVLogWriter,
             epoch_period: int) -> None:
         super(EpochValidator, self).__init__()
 
-        self.model_ref: SpeechEnhancement = model
+        self.model_ref: SpeechEnhancementVAE = model
         self.val_dataloader: torch_data.DataLoader = dataloader
         self.save_dir: str = save_dir
         if not os.path.exists(self.save_dir):
@@ -264,8 +264,8 @@ def iter_wrapper(train_context: TrainContext) -> Generator[InstantLogs, None, No
 def train(
         identifier: str,
         train_configs: TrainConfigs,
-        model_configs: SpeechEnhancement.ConstructorArgs,
-        pretrain_model_configs: PretrainSpeechVariance.ConstructorArgs,
+        model_configs: SpeechEnhancementVAE.ConstructorArgs,
+        pretrain_model_configs: PretrainSpeechVarianceVAE.ConstructorArgs,
         pretrain_model_path: str,
         init_state_dict_path: Optional[str] = None) -> None:
 
@@ -302,7 +302,7 @@ def train(
          previous_epoch) = load_state_dict_from_path(init_state_dict_path)
 
         model, optimiser, scheduler = load_model_to_cuda(
-            model_class=SpeechEnhancement,
+            model_class=SpeechEnhancementVAE,
             model_configs=model_configs.dict(),
             model_params_filters=lambda net: net.parameters(),
             optimiser_class=optim.Adam,
@@ -317,7 +317,7 @@ def train(
         optimiser_state_dict, scheduler_state_dict, previous_epoch = None, None, -1
 
         model, optimiser, scheduler = load_model_to_cuda(
-            model_class=SpeechEnhancement,
+            model_class=SpeechEnhancementVAE,
             model_configs=model_configs.dict(),
             model_params_filters=lambda net: net.parameters(),
             model_load_state_dict_method_name='load_state_dict_from_pretrain_state_dict',
@@ -337,7 +337,7 @@ def train(
     log_dir = 'results/is2022/{}_{}'.format(
         identifier, datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
     list_fields = model.output_logging_keys
-    
+
     with train_wrapper(
             log_dir=log_dir,
             configs={'model': model_configs.dict(), 'train': train_configs.dict()},
@@ -413,8 +413,8 @@ def main():
     with open(args.pretrain_model_configs, 'r') as f:
         pretrain_model_configs = yaml.safe_load(f)
     train_configs = TrainConfigs(**train_configs)
-    model_configs = SpeechEnhancement.ConstructorArgs(**model_configs)
-    pretrain_model_configs = PretrainSpeechVariance.ConstructorArgs(**pretrain_model_configs)
+    model_configs = SpeechEnhancementVAE.ConstructorArgs(**model_configs)
+    pretrain_model_configs = PretrainSpeechVarianceVAE.ConstructorArgs(**pretrain_model_configs)
     identifier = args.identifier
 
     global num_gpus

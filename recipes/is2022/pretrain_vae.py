@@ -15,9 +15,9 @@ from typing import Any, Dict, Generator, List, Optional, Union, Literal
 from deep.utils import (
     AverageLogs, InstantLogs, Checkpointer, Counter, CSVLogWriter,
     load_model_to_cuda, load_state_dict_from_path)
-from recipies.is2022.data_utils import PreSyntheticNoisyDataset, AugmentedNoisyDataset
-from recipies.is2022.model import PretrainSpeechVariance
-from recipies.is2022.media_logging import MediaDataLogging
+from recipes.is2022.data_utils import PreSyntheticNoisyDataset, AugmentedNoisyDataset
+from recipes.is2022.model import PretrainSpeechVarianceVAE
+from recipes.is2022.media_logging import MediaDataLogging
 from utils.snapshot_src import snapshot
 
 
@@ -52,13 +52,13 @@ class EpochValidator(MediaDataLogging):
     def __init__(
             self,
             dataloader: torch_data.DataLoader,
-            model: PretrainSpeechVariance,
+            model: PretrainSpeechVarianceVAE,
             save_dir: str,
             log_writer: CSVLogWriter,
             epoch_period: int) -> None:
         super(EpochValidator, self).__init__()
 
-        self.model_ref: PretrainSpeechVariance = model
+        self.model_ref: PretrainSpeechVarianceVAE = model
         self.val_dataloader: torch_data.DataLoader = dataloader
         self.save_dir: str = save_dir
         if not os.path.exists(self.save_dir):
@@ -85,7 +85,7 @@ class EpochValidator(MediaDataLogging):
                 x_bt = batch_data[1].cuda()
 
                 self.model_ref.eval()
-                val_data = self.model_ref.validate(x_bt, epoch=epoch)
+                val_data = self.model_ref.validate(x_bt)
 
                 # Write numerical values to CSV
                 if val_data.get('numerical') is not None:
@@ -238,7 +238,7 @@ def train_wrapper(
 @contextlib.contextmanager
 def epoch_wrapper(epoch: int, train_context: TrainContext) -> Generator[AverageLogs, None, None]:
     global rank
-    
+
     epoch_logs = AverageLogs()
     yield epoch_logs
 
@@ -263,7 +263,7 @@ def iter_wrapper(train_context: TrainContext) -> Generator[InstantLogs, None, No
 def train(
         identifier: str,
         train_configs: TrainConfigs,
-        model_configs: PretrainSpeechVariance.ConstructorArgs,
+        model_configs: PretrainSpeechVarianceVAE.ConstructorArgs,
         init_state_dict_path: Optional[str] = None) -> None:
 
     global num_gpus
@@ -298,7 +298,7 @@ def train(
      previous_epoch) = load_state_dict_from_path(init_state_dict_path)
 
     model, optimiser, scheduler = load_model_to_cuda(
-        model_class=PretrainSpeechVariance,
+        model_class=PretrainSpeechVarianceVAE,
         model_configs=model_configs.dict(),
         model_params_filters=lambda net: net.parameters(),
         optimiser_class=optim.Adam,
@@ -347,7 +347,7 @@ def train(
                             # Train with GradScaler
                             with torch.cuda.amp.autocast(enabled=True):
                                 x_bt = x_bt.cuda()
-                                loss, logs = model(x_bt, epoch=epoch)
+                                loss, logs = model(x_bt)
 
                             scaler.scale(loss).backward()
                             scaler.step(optimiser)
@@ -359,7 +359,7 @@ def train(
                         else:
                             # Train without GradScaler
                             x_bt = x_bt.cuda()
-                            loss, logs = model(x_bt, epoch=epoch)
+                            loss, logs = model(x_bt)
                             loss.backward()
                             optimiser.step()
                             if scheduler is not None:
@@ -384,7 +384,7 @@ def main():
     with open(args.model_configs, 'r') as f:
         model_configs = yaml.safe_load(f)
     train_configs = TrainConfigs(**train_configs)
-    model_configs = PretrainSpeechVariance.ConstructorArgs(**model_configs)
+    model_configs = PretrainSpeechVarianceVAE.ConstructorArgs(**model_configs)
     identifier = args.identifier
 
     global num_gpus
